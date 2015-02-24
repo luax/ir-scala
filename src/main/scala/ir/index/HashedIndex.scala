@@ -82,7 +82,26 @@ class HashedIndex extends BasicIndex {
   }
 
   private def rankedStrategy(postingsLists: List[PostingsList]): PostingsList = {
-    null
+    var scores = new HashMap[Int, Double]()
+    var result = new PostingsList
+  
+    val score = (entry: PostingsEntry, list: PostingsList) =>
+      entry.tf * list.idf / Index.docLengths.get(entry.docId.toString)
+
+    postingsLists.foreach { list =>
+      list.foreach { entry =>
+        scores(entry.docId) = scores.getOrElse(entry.docId, 0.0) + score(entry, list)
+      }
+    }
+
+    scores
+      .toSeq
+      .sortBy(-_._2)
+      .foreach((elem: (Int, Double)) => {
+        result += new PostingsEntry(elem._1, elem._2)
+      })
+
+    result
   }
 
   private def intersect(p1: Iterator[PostingsEntry], p2: Iterator[PostingsEntry], addResult: (PostingsEntry, PostingsEntry, PostingsList) => Unit): PostingsList = {
