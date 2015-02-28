@@ -9,7 +9,7 @@ import java.util.LinkedList
 import scala.collection.mutable.ListBuffer
 
 class HashedIndex extends BasicIndex {
-  val index: HashMap[String, PostingsList] = new HashMap[String, PostingsList]()
+  val index = HashMap[String, PostingsList]()
 
   override def getPostings(tokens: LinkedList[String]): List[PostingsList] = {
     var r = new ListBuffer[PostingsList]()
@@ -84,7 +84,7 @@ class HashedIndex extends BasicIndex {
   private def rankedStrategy(postingsLists: List[PostingsList]): PostingsList = {
     var scores = new HashMap[Int, Double]()
     var result = new PostingsList
-  
+
     val score = (entry: PostingsEntry, list: PostingsList) =>
       entry.tf * list.idf / Index.docLengths.get(entry.docId.toString)
 
@@ -108,7 +108,7 @@ class HashedIndex extends BasicIndex {
     val nextPost = (p1: Iterator[PostingsEntry]) => {
       if (p1.hasNext) p1.next() else null
     }
-    var result = new PostingsList("")
+    var result = new PostingsList()
     var left = nextPost(p1)
     var right = nextPost(p2)
     while (left != null && right != null) {
