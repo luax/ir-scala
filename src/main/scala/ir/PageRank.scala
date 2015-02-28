@@ -9,8 +9,6 @@ object PageRank {
   val α = 0.15
 
   val A = HashMap[Int, HashSet[Int]]()
-  var N = 0
-
   val documentMap = HashMap[Int, Int]()
 
   def readFile(file: String) {
@@ -41,11 +39,11 @@ object PageRank {
         A(internalMapping(docId)) += internalMapping(docLink)
       }
     }
-
-    N = internalMapping.size
   }
 
   def printMatrix() {
+    val N = documentMap.size
+
     for (row <- 0 until N) {
       for (col <- 0 until N) {
         if (A.contains(row) && A(row).contains(col)) {
@@ -65,22 +63,26 @@ object PageRank {
   }
 
   def transition(x: Array[Double]): Array[Double] = {
-    var xx = new Array[Double](N)
+    val N = documentMap.size
+    val xx = new Array[Double](N)
     for (row <- 0 until N) {
+      val jump = x(row) * (α / N)
+      val sink = x(row) * ((1.0 - α) / (N - 1.0) + α / N)
       if (A.contains(row)) {
+        val link = x(row) * ((1.0 - α) / A(row).size + α / N)
         for (col <- 0 until N) {
           if (A(row).contains(col)) {
-            xx(col) += x(row) * ((1.0 - α) / A(row).size + α / N)
+            xx(col) += link
           } else {
-            xx(col) += x(row) * (α / N)
+            xx(col) += jump
           }
         }
       } else {
         for (col <- 0 until N) {
           if (col != row) {
-            xx(col) += x(row) * ((1.0 - α) / (N - 1.0) + α / N)
+            xx(col) += sink
           } else {
-            xx(col) += x(row) * (α / N)
+            xx(col) += jump
           }
         }
       }
@@ -88,11 +90,8 @@ object PageRank {
     xx
   }
 
-  def main(args: Array[String]) {
-    println("Reading links")
-    readFile("./links.txt")
-    println("N: " + N)
-
+  def powerIterate() {
+    val N = documentMap.size
     var x = new Array[Double](N)
     var xx = new Array[Double](N)
     xx(0) = 1.0
@@ -109,6 +108,12 @@ object PageRank {
 
     println("Result:")
     xx.zipWithIndex.sortBy(-_._1).take(50).foreach((x) => println(x._1 + " " + documentMap(x._2)))
+  }
+
+  def main(args: Array[String]) {
+    println("Reading links")
+    readFile("./links.txt")
+    powerIterate()
   }
 }
 
