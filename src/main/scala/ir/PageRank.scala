@@ -12,7 +12,11 @@ object PageRank {
   val A = HashMap[Int, HashSet[Int]]()
   val documentMap = HashMap[Int, Int]()
 
-  def readFile(file: String) {
+  val N = readFile("./links.txt")
+  val M = 500
+
+  def readFile(file: String): Int = {
+    println("Reading links")
     val docs = HashSet[Int]()
     val internalMapping = HashMap[Int, Int]()
     var docIndex = 0
@@ -40,11 +44,10 @@ object PageRank {
         A(internalMapping(docId)) += internalMapping(docLink)
       }
     }
+    documentMap.size
   }
 
   def printMatrix() {
-    val N = documentMap.size
-
     for (row <- 0 until N) {
       for (col <- 0 until N) {
         if (A.contains(row) && A(row).contains(col)) {
@@ -64,7 +67,6 @@ object PageRank {
   }
 
   def transition(x: Array[Double]): Array[Double] = {
-    val N = documentMap.size
     val xx = new Array[Double](N)
     val rows = (0 until N).par
     rows.foreach(row => {
@@ -94,7 +96,6 @@ object PageRank {
 
   def powerIterate() {
     val start = System.nanoTime
-    val N = documentMap.size
 
     var x = new Array[Double](N)
     var xx = new Array[Double](N)
@@ -118,7 +119,6 @@ object PageRank {
   // Simulate N runs of the random walk initiated at a randomly chosen page.
   def monteCarloRandomStart() {
     val start = System.nanoTime
-    val N = documentMap.size
     val r = scala.util.Random
 
     var x = new Array[Double](N)
@@ -137,8 +137,6 @@ object PageRank {
   // each page exactly m times.
   def monteCarloCyclicStart() {
     val start = System.nanoTime
-    val N = documentMap.size
-    val M = 50
 
     var x = new Array[Double](N)
 
@@ -159,8 +157,6 @@ object PageRank {
   // α / nm
   def monteCarloCompletePath() {
     val start = System.nanoTime
-    val N = documentMap.size
-    val M = 500
 
     var x = new Array[Double](N)
     var freq = new Array[Int](N)
@@ -182,8 +178,6 @@ object PageRank {
   // the total number of visited pages
   def monteCarloCompletePathDangleStop() {
     val start = System.nanoTime
-    val N = documentMap.size
-    val M = 500
 
     var x = new Array[Double](N)
     var freq = new Array[Int](N)
@@ -196,14 +190,12 @@ object PageRank {
     }
 
     val totalVisits = freq.foldLeft(0) { _ + _ }
-    println(totalVisits)
     printResult(x.map(_ / totalVisits))
     printTimeElapsed(start)
   }
 
   def walk(page: Int, freq: Array[Int] = Array(), dangling: Boolean = false): Int = {
     // TODO
-    val N = documentMap.size
     val r = scala.util.Random
     var p = page
     while (true) {
@@ -225,8 +217,6 @@ object PageRank {
   }
 
   def main(args: Array[String]) {
-    println("Reading links")
-    readFile("./links.txt")
     //powerIterate
     //monteCarloRandomStart
     //monteCarloCyclicStart
