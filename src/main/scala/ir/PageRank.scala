@@ -65,7 +65,8 @@ object PageRank {
   def transition(x: Array[Double]): Array[Double] = {
     val N = documentMap.size
     val xx = new Array[Double](N)
-    for (row <- 0 until N) {
+    val rows = (0 until N).par
+    rows.foreach(row => {
       val jump = x(row) * (α / N)
       val sink = x(row) * ((1.0 - α) / (N - 1.0) + α / N)
       if (A.contains(row)) {
@@ -86,11 +87,13 @@ object PageRank {
           }
         }
       }
-    }
+    })
     xx
   }
 
   def powerIterate() {
+    val start = System.nanoTime
+
     val N = documentMap.size
     var x = new Array[Double](N)
     var xx = new Array[Double](N)
@@ -108,6 +111,8 @@ object PageRank {
 
     println("Result:")
     xx.zipWithIndex.sortBy(-_._1).take(50).foreach((x) => println(x._1 + " " + documentMap(x._2)))
+
+    println("Time elapsed: " + (System.nanoTime - start) * 1e-9 + " s")
   }
 
   def main(args: Array[String]) {
