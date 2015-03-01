@@ -3,6 +3,7 @@ package ir
 import scala.io.Source
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
+import scala.util.control.Breaks._
 
 object PageRank {
   val Epsilon = 0.001
@@ -93,8 +94,8 @@ object PageRank {
 
   def powerIterate() {
     val start = System.nanoTime
-
     val N = documentMap.size
+
     var x = new Array[Double](N)
     var xx = new Array[Double](N)
     xx(0) = 1.0
@@ -110,15 +111,57 @@ object PageRank {
     }
 
     println("Result:")
-    xx.zipWithIndex.sortBy(-_._1).take(50).foreach((x) => println(x._1 + " " + documentMap(x._2)))
+    xx.zipWithIndex
+      .sortBy(-_._1)
+      .take(50)
+      .foreach((x) => println(documentMap(x._2) + " " + x._1))
 
+    println("Time elapsed: " + (System.nanoTime - start) * 1e-9 + " s")
+  }
+
+  // Simulate N runs of the random walk initiated at a randomly chosen page
+  def monteCarloRandomStart() {
+    val start = System.nanoTime
+    val N = documentMap.size
+    val r = scala.util.Random
+
+    var x = new Array[Double](N)
+
+    for (walk <- 0 until N) {
+      var page = r.nextInt(N)
+
+      breakable {
+        while (true) {
+          val prob = r.nextDouble
+          if (prob >= 1 - α) {
+            if (A.contains(page)) {
+              page = A(page).toList(r.nextInt(A(page).size)) // TODO
+            } else {
+              page = r.nextInt(N)
+            }
+          } else {
+            break
+          }
+        }
+      }
+ 
+      x(page) += 1
+    }
+
+    println("Result:")
+    x.map(_ / N)
+      .zipWithIndex
+      .sortBy(-_._1)
+      .take(50)
+      .foreach((x) => println(documentMap(x._2) + " " + x._1))
     println("Time elapsed: " + (System.nanoTime - start) * 1e-9 + " s")
   }
 
   def main(args: Array[String]) {
     println("Reading links")
     readFile("./links.txt")
-    powerIterate()
+    //powerIterate()
+    monteCarloRandomStart()
   }
 }
 
