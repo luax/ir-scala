@@ -13,7 +13,7 @@ object PageRank {
   val documentMap = HashMap[Int, Int]()
 
   val N = readFile("./links.txt")
-  val M = 500
+  val M = 1000
 
   def readFile(file: String): Int = {
     println("Reading links")
@@ -121,7 +121,7 @@ object PageRank {
     val start = System.nanoTime
     val r = scala.util.Random
 
-    var x = new Array[Double](N)
+    val x = new Array[Double](N)
 
     for (n <- 0 until N) {
       var page = walk(r.nextInt(N))
@@ -138,7 +138,7 @@ object PageRank {
   def monteCarloCyclicStart() {
     val start = System.nanoTime
 
-    var x = new Array[Double](N)
+    val x = new Array[Double](N)
 
     for (n <- 0 until N) {
       var page = n
@@ -158,8 +158,8 @@ object PageRank {
   def monteCarloCompletePath() {
     val start = System.nanoTime
 
-    var x = new Array[Double](N)
-    var freq = new Array[Int](N)
+    val x = new Array[Double](N)
+    val freq = new Array[Int](N)
 
     for (n <- 0 until N) {
       var page = n
@@ -179,14 +179,32 @@ object PageRank {
   def monteCarloCompletePathDangleStop() {
     val start = System.nanoTime
 
-    var x = new Array[Double](N)
-    var freq = new Array[Int](N)
+    val x = new Array[Double](N)
+    val freq = new Array[Int](N)
 
     for (n <- 0 until N) {
       var page = n
       for (m <- 0 until M) {
         x(walk(page, freq, true)) += freq(page)
       }
+    }
+
+    val totalVisits = freq.foldLeft(0) { _ + _ }
+    printResult(x.map(_ / totalVisits))
+    printTimeElapsed(start)
+  }
+
+  // 5
+  def monteCarloCompletePathRandomStartDangleStop() {
+    val start = System.nanoTime
+    val r = scala.util.Random
+
+    val x = new Array[Double](N)
+    val freq = new Array[Int](N)
+
+    for (n <- 0 until N) {
+      var page = r.nextInt(N)
+      x(walk(page, freq, true)) += freq(page)
     }
 
     val totalVisits = freq.foldLeft(0) { _ + _ }
@@ -221,7 +239,7 @@ object PageRank {
     //monteCarloRandomStart
     //monteCarloCyclicStart
     //monteCarloCompletePath
-    monteCarloCompletePathDangleStop
+    monteCarloCompletePathRandomStartDangleStop
   }
 
   def printResult(x: Array[Double]) {
