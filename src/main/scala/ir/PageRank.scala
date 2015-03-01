@@ -155,7 +155,7 @@ object PageRank {
 
   // 3
   // Simulate the random walk initiated exactly m times from each page.
-  // For any page, evaulate the total number of visits to page j multiplied by 
+  // For any page, evaluate the total number of visits to page j multiplied by 
   // α / nm
   def monteCarloCompletePath() {
     val start = System.nanoTime
@@ -176,23 +176,50 @@ object PageRank {
     printTimeElapsed(start)
   }
 
-  def walk(page: Int, freq: Array[Int] = Array()): Int = {
+  // 4
+  // Simulate the random walk initiated exactly m times from each page.
+  // For any page, evaluate the total number of visits to page j divided by 
+  // the total number of visited pages
+  def monteCarloCompletePathDangleStop() {
+    val start = System.nanoTime
+    val N = documentMap.size
+    val M = 500
+
+    var x = new Array[Double](N)
+    var freq = new Array[Int](N)
+
+    for (n <- 0 until N) {
+      var page = n
+      for (m <- 0 until M) {
+        x(walk(page, freq, true)) += freq(page)
+      }
+    }
+
+    val totalVisits = freq.foldLeft(0) { _ + _ }
+    println(totalVisits)
+    printResult(x.map(_ / totalVisits))
+    printTimeElapsed(start)
+  }
+
+  def walk(page: Int, freq: Array[Int] = Array(), dangling: Boolean = false): Int = {
     // TODO
     val N = documentMap.size
     val r = scala.util.Random
     var p = page
     while (true) {
       val prob = r.nextDouble
+      if (!freq.isEmpty) freq(p) += 1 // TODO
       if (prob >= 1 - α) {
         if (A.contains(p)) {
           p = A(p).toList(r.nextInt(A(p).size)) // TODO
+        } else if (dangling) {
+          return p
         } else {
           p = r.nextInt(N)
         }
       } else {
         return p
       }
-      if (!freq.isEmpty) freq(p) += 1 // TODO
     }
     0
   }
@@ -200,10 +227,11 @@ object PageRank {
   def main(args: Array[String]) {
     println("Reading links")
     readFile("./links.txt")
-    //powerIterate()
-    //monteCarloRandomStart()
-    //monteCarloCyclicStart()
-    monteCarloCompletePath
+    //powerIterate
+    //monteCarloRandomStart
+    //monteCarloCyclicStart
+    //monteCarloCompletePath
+    monteCarloCompletePathDangleStop
   }
 
   def printResult(x: Array[Double]) {
