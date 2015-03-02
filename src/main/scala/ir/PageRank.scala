@@ -15,6 +15,8 @@ object PageRank {
   val N = readFile("./links.txt")
   val M = 1000
 
+  val Runs = 10
+
   def readFile(file: String): Int = {
     println("Reading links")
     val docs = HashSet[Int]()
@@ -94,7 +96,7 @@ object PageRank {
     xx
   }
 
-  def powerIterate() {
+  def powerIterate(): Array[Double] = {
     val start = System.nanoTime
 
     var x = new Array[Double](N)
@@ -111,105 +113,103 @@ object PageRank {
       println("Diff: " + diff())
     }
 
-    printResult(xx)
-    printTimeElapsed(start)
+    xx
   }
 
   // 1
-  // Simulate N runs of the random walk initiated at a randomly chosen page.
-  def monteCarloRandomStart() {
+  def monteCarloRandomStart(): Array[Double] = {
     val start = System.nanoTime
     val r = scala.util.Random
 
     val x = new Array[Double](N)
 
-    for (n <- 0 until N) {
-      var page = walk(r.nextInt(N))
-      x(page) += 1
+    for (_ <- 0 until Runs) {
+      for (n <- 0 until N) {
+        x(walk(r.nextInt(N))) += 1
+      }
     }
 
-    printResult(x.map(_ / N))
-    printTimeElapsed(start)
+    x.map(_ / (N * Runs))
   }
 
   // 2
-  // Simulate N = mn runs of the random walk initiated at 
-  // each page exactly m times.
-  def monteCarloCyclicStart() {
+  def monteCarloCyclicStart(): Array[Double] = {
     val start = System.nanoTime
 
     val x = new Array[Double](N)
 
-    for (n <- 0 until N) {
-      var page = n
-      for (m <- 0 until M) {
-        x(walk(page)) += 1
+    for (_ <- 0 until Runs) {
+      for (n <- 0 until N) {
+        var page = n
+        for (_ <- 0 until M) {
+          x(walk(page)) += 1
+        }
       }
     }
 
-    printResult(x.map(_ / N))
-    printTimeElapsed(start)
+    x.map(_ / (N * Runs * M))
   }
 
   // 3
-  // Simulate the random walk initiated exactly m times from each page.
-  // For any page, evaluate the total number of visits to page j multiplied by 
-  // α / nm
-  def monteCarloCompletePath() {
+  def monteCarloCompletePath(): Array[Double] = {
     val start = System.nanoTime
 
     val x = new Array[Double](N)
     val freq = new Array[Int](N)
 
-    for (n <- 0 until N) {
-      var page = n
-      for (m <- 0 until M) {
-        x(walk(page, freq)) += freq(page)
+    for (_ <- 0 until Runs) {
+      for (n <- 0 until N) {
+        var page = n
+        for (_ <- 0 until M) {
+          var endPage = walk(page, freq)
+          x(endPage) = freq(endPage)
+        }
       }
     }
 
-    printResult(x.map(_ * α / N * M))
-    printTimeElapsed(start)
+    // Note: N = n*m (N * M here) in Avrachenkov et al.
+    x.map(_ * α / (N * M * Runs))
   }
 
   // 4
-  // Simulate the random walk initiated exactly m times from each page.
-  // For any page, evaluate the total number of visits to page j divided by 
-  // the total number of visited pages
-  def monteCarloCompletePathDangleStop() {
+  def monteCarloCompletePathDangleStop(): Array[Double] = {
     val start = System.nanoTime
 
     val x = new Array[Double](N)
     val freq = new Array[Int](N)
 
-    for (n <- 0 until N) {
-      var page = n
-      for (m <- 0 until M) {
-        x(walk(page, freq, true)) += freq(page)
+    for (_ <- 0 until Runs) {
+      for (n <- 0 until N) {
+        var page = n
+        for (_ <- 0 until M) {
+          var endPage = walk(page, freq, true)
+          x(endPage) = freq(endPage)
+        }
       }
     }
 
     val totalVisits = freq.foldLeft(0) { _ + _ }
-    printResult(x.map(_ / totalVisits))
-    printTimeElapsed(start)
+
+    x.map(_ / totalVisits)
   }
 
   // 5
-  def monteCarloCompletePathRandomStartDangleStop() {
+  def monteCarloCompletePathRandomStartDangleStop(): Array[Double] = {
     val start = System.nanoTime
     val r = scala.util.Random
 
     val x = new Array[Double](N)
     val freq = new Array[Int](N)
 
-    for (n <- 0 until N) {
-      var page = r.nextInt(N)
-      x(walk(page, freq, true)) += freq(page)
+    for (_ <- 0 until Runs) {
+      for (n <- 0 until N) {
+        var page = walk(r.nextInt(N), freq, true)
+        x(page) = freq(page)
+      }
     }
 
     val totalVisits = freq.foldLeft(0) { _ + _ }
-    printResult(x.map(_ / totalVisits))
-    printTimeElapsed(start)
+    x.map(_ / totalVisits)
   }
 
   def walk(page: Int, freq: Array[Int] = Array(), dangling: Boolean = false): Int = {
@@ -218,7 +218,6 @@ object PageRank {
     var p = page
     while (true) {
       val prob = r.nextDouble
-      if (!freq.isEmpty) freq(p) += 1 // TODO
       if (prob >= 1 - α) {
         if (A.contains(p)) {
           p = A(p).toList(r.nextInt(A(p).size)) // TODO
@@ -230,16 +229,37 @@ object PageRank {
       } else {
         return p
       }
+      if (!freq.isEmpty) freq(p) += 1 // TODO
     }
     0
   }
 
   def main(args: Array[String]) {
-    //powerIterate
-    //monteCarloRandomStart
-    //monteCarloCyclicStart
-    //monteCarloCompletePath
-    monteCarloCompletePathRandomStartDangleStop
+    compareAlgorithms()
+  }
+
+  def compareAlgorithms() {
+    var correct = powerIterate
+    val algorithms = Array(
+      monteCarloRandomStart,
+      monteCarloCyclicStart,
+      monteCarloCompletePath,
+      monteCarloCompletePathDangleStop,
+      monteCarloCompletePathRandomStartDangleStop)
+
+    val top50 = correct
+      .sortBy(-_)
+      .take(50)
+    val bottom50 = correct
+      .sorted
+      .take(50)
+
+    val compare = (x: Array[Double], y: Array[Double]) => (x, y).zipped.map((x, y) => math.pow(x - y, 2)).sum
+
+    for ((algorithm, index) <- algorithms.zipWithIndex) {
+      println(index + " top: " + compare(top50, algorithm.sortBy(-_).take(50)));
+      println(index + " bottom: " + compare(bottom50, algorithm.sortBy(+_).take(50)));
+    }
   }
 
   def printResult(x: Array[Double]) {
