@@ -2,6 +2,7 @@ test
 java
 data
 
+.ser
 *.pydevproject
 .metadata
 .gradle

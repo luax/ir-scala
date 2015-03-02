@@ -49,6 +49,8 @@ object PageRank {
         A(internalMapping(docId)) += internalMapping(docLink)
       }
     }
+
+    println("Done")
     documentMap.size
   }
 
@@ -121,13 +123,10 @@ object PageRank {
 
   // 1
   def monteCarloRandomStart(N: Int): Array[Double] = {
-    val start = System.nanoTime
-    val r = scala.util.Random
-
     val x = new Array[Double](n)
 
-    for (_ <- (0 until N).par) {
-      x(walk(r.nextInt(n))) += 1
+    (0 until N).par.foreach { _ =>
+      x(walk(rand.nextInt(n))) += 1
     }
 
     x.map(_ / N)
@@ -135,11 +134,9 @@ object PageRank {
 
   // 2
   def monteCarloCyclicStart(N: Int, M: Int): Array[Double] = {
-    val start = System.nanoTime
-
     val x = new Array[Double](n)
 
-    for (page <- 0 until N) {
+    (0 until N).par.foreach { page =>
       for (_ <- 0 until M) {
         x(walk(page)) += 1
       }
@@ -150,15 +147,11 @@ object PageRank {
 
   // 3
   def monteCarloCompletePath(N: Int, M: Int): Array[Double] = {
-    val start = System.nanoTime
-
     val x = new Array[Double](n)
-    val freq = new Array[Int](n)
 
-    for (page <- 0 until N) {
+    (0 until N).par.foreach { page =>
       for (_ <- 0 until M) {
-        var endPage = walk(page, freq)
-        x(endPage) = freq(endPage)
+        walk(page, x)
       }
     }
 
@@ -167,45 +160,36 @@ object PageRank {
 
   // 4
   def monteCarloCompletePathDangleStop(N: Int, M: Int): Array[Double] = {
-    val start = System.nanoTime
-
     val x = new Array[Double](n)
-    val freq = new Array[Int](n)
 
-    for (page <- 0 until N) {
+    (0 until N).par.foreach { page =>
       for (_ <- 0 until M) {
-        var endPage = walk(page, freq, true)
-        x(endPage) = freq(endPage)
+        walk(page, x, true)
       }
     }
 
-    val totalVisits = freq.foldLeft(0) { _ + _ }
-
+    val totalVisits = x.foldLeft(0.0) { _ + _ }
     x.map(_ / totalVisits)
   }
 
   // 5
   def monteCarloCompletePathRandomStartDangleStop(N: Int): Array[Double] = {
-    val start = System.nanoTime
-    val r = scala.util.Random
-
     val x = new Array[Double](n)
-    val freq = new Array[Int](n)
 
-    for (_ <- 0 until N) {
-      var page = walk(r.nextInt(n), freq, true)
-      x(page) = freq(page)
+    (0 until N).par.foreach { _ =>
+      walk(rand.nextInt(n), x, true)
     }
 
-    val totalVisits = freq.foldLeft(0) { _ + _ }
+    val totalVisits = x.foldLeft(0.0) { _ + _ }
     x.map(_ / totalVisits)
   }
 
-  def walk(page: Int, freq: Array[Int] = Array(), dangling: Boolean = false): Int = {
+  def walk(page: Int, freq: Array[Double] = Array(), dangling: Boolean = false): Int = {
     // TODO
     var p = page
+
     while (true) {
-      if (!freq.isEmpty) freq(p) += 1 // TODO
+      if (!freq.isEmpty) { freq(p) += 1 } // TODO
       val prob = rand.nextDouble
       if (prob >= α) {
         if (A.contains(p)) {
@@ -228,7 +212,6 @@ object PageRank {
 
   def compareAlgorithms() {
     val docs = 50
-    val M = 1
     val pageRanking = readPagerankFromFile
     val top50 = pageRanking
       .zipWithIndex
@@ -246,31 +229,57 @@ object PageRank {
       }).sum
     }
 
-    val compare = (y: Array[Double]) => {
-      (pageRanking, y).zipped.map((x: Double, y: Double) => {
-        math.pow(x - y, 2)
-      }).sum
+    val convergence3 = (y: Array[Double]) => {
+      val approx50 = y.zipWithIndex.sortBy(-_._1).take(docs).map(_._2)
+      var size = 0
+      (top50.map(_._2), approx50).zipped.foreach((x: Int, y: Int) => { if (x == y) size += 1 })
+      println("Same index: " + size)
+    }
+
+    val convergence2 = (y: Array[Double]) => {
+      !top50.map((x: (Double, Int)) => {
+        math.abs(x._1 - y(x._2)) > 0.3e-3
+      }).contains(true)
+    }
+
+    val convergence = (y: Array[Double]) => {
+      val approx50 = y.zipWithIndex.sortBy(-_._1).take(docs).map(_._2).toSet
+      val size = top50.map(_._2).toSet.intersect(approx50).size
+      size >= docs - 2 && convergence2(y)
     }
 
     val algorithms = List(
-      (N: Int, M: Int) => monteCarloRandomStart(N),
+      (N: Int, _: Int) => monteCarloRandomStart(N),
       (N: Int, M: Int) => monteCarloCyclicStart(N, M),
       (N: Int, M: Int) => monteCarloCompletePath(N, M),
       (N: Int, M: Int) => monteCarloCompletePathDangleStop(N, M),
-      (N: Int, M: Int) => monteCarloCompletePathRandomStartDangleStop(N))
+      (N: Int, _: Int) => monteCarloCompletePathRandomStartDangleStop(N))
 
-    for ((f, index) <- algorithms.zipwithindex) {
-      var n = n * 100
-      var rank = f(n, m)
-      var diff = compare(rank)
-      while (diff > 1e-7) {
-        n += 10000
-        rank = f(n, m)
-        diff = compare(rank)
-        println(n + " " + diff)
+    for ((f, index) <- algorithms.zipWithIndex) {
+      var i = 1
+      var N = n * i
+      var rank = Array[Double]()
+      var converged = false
+      while (!converged) {
+        val start = System.nanoTime
+
+        if (N > n && List(1, 2, 3).contains(index)) {
+          rank = f(n, i)
+        } else {
+          rank = f(N, 1)
+        }
+        converged = convergence(rank)
+
+        println("N = n * " + i)
+        N += n
+        i += 1
+        printTimeElapsed(start)
       }
-      println((index + 1) + " needed: " + n + " " + diff);
-      printresult(rank)
+
+      println("----")
+      //printResult(rank)
+      println("Algorithm: " + (index + 1) + " Needed N: " + N)
+      println("----")
     }
   }
 
