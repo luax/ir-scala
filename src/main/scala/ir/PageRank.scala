@@ -12,7 +12,10 @@ object PageRank {
   val A = HashMap[Int, HashSet[Int]]()
   val documentMap = HashMap[Int, Int]()
 
-  val N = readFile("./links.txt")
+  val rand = scala.util.Random
+
+  // Note: N in Avrachenkov et al is not == num documents
+  var n = readFile("./links.txt")
 
   def readFile(file: String): Int = {
     println("Reading links")
@@ -47,17 +50,17 @@ object PageRank {
   }
 
   def printMatrix() {
-    for (row <- 0 until N) {
-      for (col <- 0 until N) {
+    for (row <- 0 until n) {
+      for (col <- 0 until n) {
         if (A.contains(row) && A(row).contains(col)) {
-          print(((1.0 - α) / A(row).size) + α / N + " \t ")
+          print(((1.0 - α) / A(row).size) + α / n + " \t ")
         } else if (A.contains(row) && !A(row).isEmpty) {
-          print(α / N + " \t ")
+          print(α / n + " \t ")
         } else {
           if (col != row) {
-            print((1 - α) / (N - 1) + α / N + " \t ")
+            print((1 - α) / (n - 1) + α / n + " \t ")
           } else {
-            print(α / N + " \t ")
+            print(α / n + " \t ")
           }
         }
       }
@@ -66,14 +69,14 @@ object PageRank {
   }
 
   def transition(x: Array[Double]): Array[Double] = {
-    val xx = new Array[Double](N)
-    val rows = (0 until N).par
+    val xx = new Array[Double](n)
+    val rows = (0 until n).par
     rows.foreach(row => {
-      val jump = x(row) * (α / N)
-      val sink = x(row) * ((1.0 - α) / (N - 1.0) + α / N)
+      val jump = x(row) * (α / n)
+      val sink = x(row) * ((1.0 - α) / (n - 1.0) + α / n)
       if (A.contains(row)) {
-        val link = x(row) * ((1.0 - α) / A(row).size + α / N)
-        for (col <- 0 until N) {
+        val link = x(row) * ((1.0 - α) / A(row).size + α / n)
+        for (col <- 0 until n) {
           if (A(row).contains(col)) {
             xx(col) += link
           } else {
@@ -81,7 +84,7 @@ object PageRank {
           }
         }
       } else {
-        for (col <- 0 until N) {
+        for (col <- 0 until n) {
           if (col != row) {
             xx(col) += sink
           } else {
@@ -96,8 +99,8 @@ object PageRank {
   def powerIterate(): Array[Double] = {
     val start = System.nanoTime
 
-    var x = new Array[Double](N)
-    var xx = new Array[Double](N)
+    var x = new Array[Double](n)
+    var xx = new Array[Double](n)
     xx(0) = 1.0
 
     var i = 0
@@ -114,71 +117,62 @@ object PageRank {
   }
 
   // 1
-  def monteCarloRandomStart(iterations: Int): Array[Double] = {
+  def monteCarloRandomStart(N: Int): Array[Double] = {
     val start = System.nanoTime
     val r = scala.util.Random
 
-    val x = new Array[Double](N)
+    val x = new Array[Double](n)
 
-    for (_ <- 0 until iterations) {
-      for (n <- 0 until N) {
-        x(walk(r.nextInt(N))) += 1
-      }
+    for (_ <- (0 until N).par) {
+      x(walk(r.nextInt(n))) += 1
     }
 
-    x.map(_ / (N * iterations))
+    x.map(_ / N)
   }
 
   // 2
-  def monteCarloCyclicStart(iterations: Int, M: Int): Array[Double] = {
+  def monteCarloCyclicStart(N: Int, M: Int): Array[Double] = {
     val start = System.nanoTime
 
-    val x = new Array[Double](N)
+    val x = new Array[Double](n)
 
-    for (_ <- 0 until iterations) {
-      for (page <- 0 until N) {
-        for (_ <- 0 until M) {
-          x(walk(page)) += 1
-        }
+    for (page <- 0 until N) {
+      for (_ <- 0 until M) {
+        x(walk(page)) += 1
       }
     }
 
-    x.map(_ / (N * iterations * M))
+    x.map(_ / (N * M))
   }
 
   // 3
-  def monteCarloCompletePath(iterations: Int, M: Int): Array[Double] = {
+  def monteCarloCompletePath(N: Int, M: Int): Array[Double] = {
     val start = System.nanoTime
 
-    val x = new Array[Double](N)
-    val freq = new Array[Int](N)
+    val x = new Array[Double](n)
+    val freq = new Array[Int](n)
 
-    for (_ <- 0 until iterations) {
-      for (page <- 0 until N) {
-        for (_ <- 0 until M) {
-          var endPage = walk(page, freq)
-          x(endPage) = freq(endPage)
-        }
+    for (page <- 0 until N) {
+      for (_ <- 0 until M) {
+        var endPage = walk(page, freq)
+        x(endPage) = freq(endPage)
       }
     }
 
-    // Note: N = n*m (N * M here) in Avrachenkov et al.
-    x.map(_ * α / (N * M * iterations))
+    x.map(_ * α / (N * M))
   }
 
   // 4
-  def monteCarloCompletePathDangleStop(iterations: Int, M: Int): Array[Double] = {
+  def monteCarloCompletePathDangleStop(N: Int, M: Int): Array[Double] = {
     val start = System.nanoTime
 
-    val x = new Array[Double](N)
-    val freq = new Array[Int](N)
+    val x = new Array[Double](n)
+    val freq = new Array[Int](n)
 
-    for (_ <- 0 until iterations) {
-      for (page <- 0 until N) {
-        for (_ <- 0 until M) {
-          var endPage = walk(page, freq, true)
-          x(endPage) = freq(endPage)
-        }
+    for (page <- 0 until N) {
+      for (_ <- 0 until M) {
+        var endPage = walk(page, freq, true)
+        x(endPage) = freq(endPage)
       }
     }
 
@@ -188,18 +182,16 @@ object PageRank {
   }
 
   // 5
-  def monteCarloCompletePathRandomStartDangleStop(iterations: Int): Array[Double] = {
+  def monteCarloCompletePathRandomStartDangleStop(N: Int): Array[Double] = {
     val start = System.nanoTime
     val r = scala.util.Random
 
-    val x = new Array[Double](N)
-    val freq = new Array[Int](N)
+    val x = new Array[Double](n)
+    val freq = new Array[Int](n)
 
-    for (_ <- 0 until iterations) {
-      for (_ <- 0 until N) {
-        var page = walk(r.nextInt(N), freq, true)
-        x(page) = freq(page)
-      }
+    for (_ <- 0 until N) {
+      var page = walk(r.nextInt(n), freq, true)
+      x(page) = freq(page)
     }
 
     val totalVisits = freq.foldLeft(0) { _ + _ }
@@ -208,22 +200,21 @@ object PageRank {
 
   def walk(page: Int, freq: Array[Int] = Array(), dangling: Boolean = false): Int = {
     // TODO
-    val r = scala.util.Random
     var p = page
     while (true) {
-      val prob = r.nextDouble
-      if (prob >= 1 - α) {
+      if (!freq.isEmpty) freq(p) += 1 // TODO
+      val prob = rand.nextDouble
+      if (prob >= α) {
         if (A.contains(p)) {
-          p = A(p).toList(r.nextInt(A(p).size)) // TODO
+          p = A(p).toList(rand.nextInt(A(p).size)) // TODO
         } else if (dangling) {
           return p
         } else {
-          p = r.nextInt(N)
+          p = rand.nextInt(n)
         }
       } else {
         return p
       }
-      if (!freq.isEmpty) freq(p) += 1 // TODO
     }
     0
   }
@@ -233,38 +224,46 @@ object PageRank {
   }
 
   def compareAlgorithms() {
-    var pageRanking = powerIterate
-    val compare = (x: Array[Double], y: Array[Double]) => (x, y).zipped.map((x, y) => math.pow(x - y, 2)).sum
     val docs = 50
-    val iterations = 10
-    val M = 100
-
+    val M = 1
+    val pageRanking = powerIterate
     val top50 = pageRanking
-      .sortBy(-_)
+      .zipWithIndex
+      .sortBy(-_._1)
       .take(docs)
+
+    //top50.foreach((x) => println(documentMap(x._2) + " " + x._1))
+
     val bottom50 = pageRanking
-      .sorted
+      .zipWithIndex
+      .sortBy(+_._1)
       .take(docs)
 
-    val algorithms = List(
-      (x: Int) => monteCarloRandomStart(x),
-      (x: Int) => monteCarloCyclicStart(x, M),
-      (x: Int) => monteCarloCompletePath(x, M),
-      (x: Int) => monteCarloCompletePathDangleStop(x, M),
-      (x: Int) => monteCarloCompletePathRandomStartDangleStop(x))
-
-    println("Top")
-    for ((f, index) <- algorithms.zipWithIndex) {
-      for (i <- 1 to iterations) {
-        println((index + 1) + " " + i + " \t " + compare(top50, f(i).sortBy(-_).take(docs)));
-      }
+    val compare = (y: Array[Double]) => {
+      top50.map((x: (Double, Int)) => {
+        math.pow(x._1 - y(x._2), 2)
+      }).sum
     }
 
-    println("Bottom")
+    val algorithms = List(
+      (N: Int, M: Int) => monteCarloRandomStart(N),
+      (N: Int, M: Int) => monteCarloCyclicStart(N, M),
+      (N: Int, M: Int) => monteCarloCompletePath(N, M),
+      (N: Int, M: Int) => monteCarloCompletePathDangleStop(N, M),
+      (N: Int, M: Int) => monteCarloCompletePathRandomStartDangleStop(N))
+
     for ((f, index) <- algorithms.zipWithIndex) {
-      for (i <- 1 to iterations) {
-        println((index + 1) + "" + i + " \t " + compare(bottom50, f(i).sortBy(+_).take(docs)));
+      var N = n * 100
+      var rank = f(N, M)
+      var diff = compare(rank)
+      while (diff > 1e-7) {
+        N += 10000
+        rank = f(N, M)
+        diff = compare(rank)
+        println(N + " " + diff)
       }
+      println((index + 1) + " Needed: " + N + " " + diff);
+      printResult(rank)
     }
   }
 
