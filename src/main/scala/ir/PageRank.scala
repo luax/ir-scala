@@ -1,9 +1,12 @@
 package ir
 
-import scala.io.Source
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
 import scala.util.control.Breaks._
+import java.io.FileOutputStream
+import java.io.ObjectOutputStream
+import java.io._
+import scala.io.Source
 
 object PageRank {
   val Epsilon = 0.001
@@ -220,28 +223,32 @@ object PageRank {
   }
 
   def main(args: Array[String]) {
-    compareAlgorithms()
+    compareAlgorithms
   }
 
   def compareAlgorithms() {
     val docs = 50
     val M = 1
-    val pageRanking = powerIterate
+    val pageRanking = readPagerankFromFile
     val top50 = pageRanking
       .zipWithIndex
       .sortBy(-_._1)
       .take(docs)
-
-    //top50.foreach((x) => println(documentMap(x._2) + " " + x._1))
 
     val bottom50 = pageRanking
       .zipWithIndex
       .sortBy(+_._1)
       .take(docs)
 
-    val compare = (y: Array[Double]) => {
+    val goodness = (y: Array[Double]) => {
       top50.map((x: (Double, Int)) => {
         math.pow(x._1 - y(x._2), 2)
+      }).sum
+    }
+
+    val compare = (y: Array[Double]) => {
+      (pageRanking, y).zipped.map((x: Double, y: Double) => {
+        math.pow(x - y, 2)
       }).sum
     }
 
@@ -252,18 +259,18 @@ object PageRank {
       (N: Int, M: Int) => monteCarloCompletePathDangleStop(N, M),
       (N: Int, M: Int) => monteCarloCompletePathRandomStartDangleStop(N))
 
-    for ((f, index) <- algorithms.zipWithIndex) {
-      var N = n * 100
-      var rank = f(N, M)
+    for ((f, index) <- algorithms.zipwithindex) {
+      var n = n * 100
+      var rank = f(n, m)
       var diff = compare(rank)
       while (diff > 1e-7) {
-        N += 10000
-        rank = f(N, M)
+        n += 10000
+        rank = f(n, m)
         diff = compare(rank)
-        println(N + " " + diff)
+        println(n + " " + diff)
       }
-      println((index + 1) + " Needed: " + N + " " + diff);
-      printResult(rank)
+      println((index + 1) + " needed: " + n + " " + diff);
+      printresult(rank)
     }
   }
 
@@ -277,6 +284,21 @@ object PageRank {
 
   def printTimeElapsed(start: Double) {
     println("Time elapsed: " + (System.nanoTime - start) * 1e-9 + " s")
+  }
+
+  def writePagerankToFile() {
+    val fos = new FileOutputStream("./pangerank.ser")
+    val oos = new ObjectOutputStream(fos)
+    oos.writeObject(powerIterate)
+    oos.close
+  }
+
+  def readPagerankFromFile(): Array[Double] = {
+    val fis = new FileInputStream("./pangerank.ser")
+    val ois = new ObjectInputStream(fis)
+    val rank = ois.readObject.asInstanceOf[Array[Double]]
+    ois.close
+    rank
   }
 }
 
