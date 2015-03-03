@@ -269,8 +269,9 @@ object PageRank {
       var N = n * i
       var rank = Array[Double]()
       var converged = false
+
+      val start = System.nanoTime
       while (!converged) {
-        val start = System.nanoTime
 
         if (N > n && List(1, 2, 3).contains(index)) {
           rank = f(n, i)
@@ -282,12 +283,14 @@ object PageRank {
         //println("N = n * " + i)
         N = n * i
         i += 1
-        //printTimeElapsed(start)
+
       }
 
       println("----")
-      //printResult(rank)
-      println("Algorithm: " + (index + 1) + " Needed N = n * " + i + " = " + N)
+      println("Algorithm: " + (index + 1) + ", Needed N = n * " + i + " = " + N)
+      printTimeElapsed(start)
+      printResult(rank)
+
       println("----")
     }
   }
@@ -297,7 +300,7 @@ object PageRank {
     x.zipWithIndex
       .sortBy(-_._1)
       .take(50)
-      .foreach((x) => println(documentMap(x._2) + " " + x._1))
+      .foreach((x) => println(documentMap(x._2) + "," + x._1))
   }
 
   def printTimeElapsed(start: Double) {

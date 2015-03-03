@@ -95,11 +95,10 @@ class HashedIndex extends BasicIndex {
 
     val score = (entry: PostingsEntry, list: PostingsList) => {
       val file = Index.docIDs.get(entry.docId.toString)
-      val tfidf = entry.tf * list.idf / Index.docLengths.get(entry.docId.toString)
+      val tfidf = entry.tf * list.idf / Index.docLengths.get(entry.docId.toString) // * list.idf
       rankingType match {
-        case Index.COMBINATION => pageRank(file) * tfidf // 2 * pageRank(file) + 0.5 * tfidf
         case Index.TF_IDF      => tfidf
-        // case Index.PAGERANK    => pageRank(file)
+        case Index.COMBINATION => 2 * pageRank(file) + 1 * tfidf
       }
     }
 
