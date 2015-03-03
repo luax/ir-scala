@@ -228,13 +228,30 @@ object PageRank {
       }).sum
     }
 
-    val convergence2 = (y: Array[Double]) => {
+    val c3 = (y: Array[Double]) => {
+      var test = 3
+      val approx50 = y.zipWithIndex.sortBy(-_._1).take(docs + test).map(_._2)
+      var size = top50.map(_._2).zipWithIndex.map((x) => {
+        var j = 0
+        var found = false
+        if (x._2 - 2 >= 0) j = x._2 - 2
+        while (j < top50.size + test && j < (x._2 + 2) && !found) {
+          if (approx50(j) == x._1) found = true
+          j += 1
+        }
+        found
+      }).filter(_ == true).size
+      println(size)
+      size == 50
+    }
+
+    val c2 = (y: Array[Double]) => {
       !top50.map((x: (Double, Int)) => {
         math.abs(x._1 - y(x._2)) > 0.3e-3
       }).contains(true)
     }
 
-    val convergence = (y: Array[Double]) => {
+    val c1 = (y: Array[Double]) => {
       val approx50 = y.zipWithIndex.sortBy(-_._1).take(docs).map(_._2).toSet
       val size = top50.map(_._2).toSet.intersect(approx50).size
       size >= docs - 2
@@ -260,18 +277,17 @@ object PageRank {
         } else {
           rank = f(N, 1)
         }
-        converged = convergence(rank) && convergence2(rank)
+        converged = c1(rank) && c2(rank) // && c3(rank)
 
-        println("N = n * " + i)
-        N += n
+        //println("N = n * " + i)
+        N = n * i
         i += 1
-        printTimeElapsed(start)
-        printResult(rank)
+        //printTimeElapsed(start)
       }
 
       println("----")
       //printResult(rank)
-      println("Algorithm: " + (index + 1) + " Needed N: " + N)
+      println("Algorithm: " + (index + 1) + " Needed N = n * " + i + " = " + N)
       println("----")
     }
   }
