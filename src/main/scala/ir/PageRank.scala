@@ -3,12 +3,13 @@ package ir
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
 import scala.util.control.Breaks._
-import java.io.FileOutputStream
-import java.io.ObjectOutputStream
 import java.io._
 import scala.io.Source
 
 object PageRank {
+  val pageRankPath = "./pagerank.ser"
+  val pageRankArrayPath = "./pagerank_array.ser"
+
   val Epsilon = 0.001
   val α = 0.15
 
@@ -185,9 +186,7 @@ object PageRank {
   }
 
   def walk(page: Int, freq: Array[Double] = Array(), dangling: Boolean = false): Int = {
-    // TODO
     var p = page
-
     while (true) {
       if (!freq.isEmpty) { freq(p) += 1 } // TODO
       val prob = rand.nextDouble
@@ -212,7 +211,7 @@ object PageRank {
 
   def compareAlgorithms() {
     val docs = 50
-    val pageRanking = readPagerankFromFile
+    val pageRanking = readPagerankArrayFromFile
     val top50 = pageRanking
       .zipWithIndex
       .sortBy(-_._1)
@@ -229,13 +228,6 @@ object PageRank {
       }).sum
     }
 
-    val convergence3 = (y: Array[Double]) => {
-      val approx50 = y.zipWithIndex.sortBy(-_._1).take(docs).map(_._2)
-      var size = 0
-      (top50.map(_._2), approx50).zipped.foreach((x: Int, y: Int) => { if (x == y) size += 1 })
-      println("Same index: " + size)
-    }
-
     val convergence2 = (y: Array[Double]) => {
       !top50.map((x: (Double, Int)) => {
         math.abs(x._1 - y(x._2)) > 0.3e-3
@@ -245,7 +237,7 @@ object PageRank {
     val convergence = (y: Array[Double]) => {
       val approx50 = y.zipWithIndex.sortBy(-_._1).take(docs).map(_._2).toSet
       val size = top50.map(_._2).toSet.intersect(approx50).size
-      size >= docs - 2 && convergence2(y)
+      size >= docs - 2
     }
 
     val algorithms = List(
@@ -268,12 +260,13 @@ object PageRank {
         } else {
           rank = f(N, 1)
         }
-        converged = convergence(rank)
+        converged = convergence(rank) && convergence2(rank)
 
         println("N = n * " + i)
         N += n
         i += 1
         printTimeElapsed(start)
+        printResult(rank)
       }
 
       println("----")
@@ -295,19 +288,39 @@ object PageRank {
     println("Time elapsed: " + (System.nanoTime - start) * 1e-9 + " s")
   }
 
-  def writePagerankToFile() {
-    val fos = new FileOutputStream("./pangerank.ser")
+  def writePagerankArrayToFile() {
+    val fos = new FileOutputStream(pageRankArrayPath)
     val oos = new ObjectOutputStream(fos)
     oos.writeObject(powerIterate)
     oos.close
   }
 
-  def readPagerankFromFile(): Array[Double] = {
-    val fis = new FileInputStream("./pangerank.ser")
+  def readPagerankArrayFromFile(): Array[Double] = {
+    val fis = new FileInputStream(pageRankArrayPath)
     val ois = new ObjectInputStream(fis)
     val rank = ois.readObject.asInstanceOf[Array[Double]]
     ois.close
     rank
+  }
+
+  def writePagerankToFile() {
+    // Read id to title mapping
+    var titles = HashMap[Int, String]()
+    for (line <- Source.fromFile("titles.txt").getLines()) {
+      var parts = line.split(";")
+      var id = parts(0).toInt
+      var title = parts(1)
+      titles(id) = title
+    }
+
+    // Map id -> title = score
+    var mapping = HashMap[String, Double]()
+    powerIterate.zipWithIndex.foreach((x) => mapping(titles(documentMap(x._2))) = x._1)
+
+    val fos = new FileOutputStream(pageRankPath)
+    val oos = new ObjectOutputStream(fos)
+    oos.writeObject(mapping)
+    oos.close
   }
 }
 

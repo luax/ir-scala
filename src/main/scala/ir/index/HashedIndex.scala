@@ -7,9 +7,13 @@ import ir.Query
 import ir.Index
 import java.util.LinkedList
 import scala.collection.mutable.ListBuffer
+import java.io._
 
 class HashedIndex extends BasicIndex {
   val index = HashMap[String, PostingsList]()
+
+  val pageRankPath = "./pagerank.ser"
+  val pageRank = readPageRank
 
   override def getPostings(tokens: LinkedList[String]): List[PostingsList] = {
     var r = new ListBuffer[PostingsList]()
@@ -45,7 +49,7 @@ class HashedIndex extends BasicIndex {
     queryType match {
       case Index.INTERSECTION_QUERY => intersectionStrategy(postingsList)
       case Index.PHRASE_QUERY       => phraseStrategy(postingsList)
-      case Index.RANKED_QUERY       => rankedStrategy(postingsList)
+      case Index.RANKED_QUERY       => rankedStrategy(postingsList, rankingType)
     }
   }
 
@@ -81,12 +85,23 @@ class HashedIndex extends BasicIndex {
       .foldLeft(postingsLists(0))((b, a) => intersect(b.iterator, a.iterator, addResult))
   }
 
-  private def rankedStrategy(postingsLists: List[PostingsList]): PostingsList = {
-    var scores = new HashMap[Int, Double]()
-    var result = new PostingsList
+  private def rankedStrategy(postingsLists: List[PostingsList], rankingType: Int): PostingsList = {
+    val scores = new HashMap[Int, Double]()
+    val result = new PostingsList
 
-    val score = (entry: PostingsEntry, list: PostingsList) =>
-      entry.tf * list.idf / Index.docLengths.get(entry.docId.toString)
+    if (rankingType == Index.PAGERANK) {
+      return returnPageRank()
+    }
+
+    val score = (entry: PostingsEntry, list: PostingsList) => {
+      val file = Index.docIDs.get(entry.docId.toString)
+      val tfidf = entry.tf * list.idf / Index.docLengths.get(entry.docId.toString)
+      rankingType match {
+        case Index.COMBINATION => pageRank(file) * tfidf // 2 * pageRank(file) + 0.5 * tfidf
+        case Index.TF_IDF      => tfidf
+        // case Index.PAGERANK    => pageRank(file)
+      }
+    }
 
     postingsLists.foreach { list =>
       list.foreach { entry =>
@@ -123,6 +138,33 @@ class HashedIndex extends BasicIndex {
       }
     }
     result
+  }
+
+  private def returnPageRank(): PostingsList = {
+    val reversed = new HashMap[String, Int]()
+    val result = new PostingsList
+    var set = Index.docIDs.entrySet()
+    var it = set.iterator();
+    while (it.hasNext()) {
+      var pair = it.next();
+      reversed(pair.getValue) = pair.getKey.toInt
+    }
+    pageRank
+      .toSeq
+      .sortBy(-_._2)
+      .foreach((elem: (String, Double)) => {
+        if (reversed.contains(elem._1))
+          result += new PostingsEntry(reversed(elem._1), elem._2)
+      })
+    result
+  }
+
+  private def readPageRank(): HashMap[String, Double] = {
+    val fis = new FileInputStream(pageRankPath)
+    val ois = new ObjectInputStream(fis)
+    val pageRank = ois.readObject.asInstanceOf[HashMap[String, Double]]
+    ois.close
+    pageRank
   }
 
 }
