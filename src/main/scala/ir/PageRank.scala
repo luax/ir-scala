@@ -7,21 +7,21 @@ import java.io._
 import scala.io.Source
 
 object PageRank {
-  val pageRankPath = "./pagerank.ser"
-  val pageRankArrayPath = "./pagerank_array.ser"
+  val pageRankPath = "./data/pagerank.ser"
+  val pageRankArrayPath = "./data/pagerank_array.ser"
+  val linksPath = "./data/links.txt"
+  val titlesPath = "./data/titles.txt"
 
   val Epsilon = 0.001
   val α = 0.15
 
   val A = HashMap[Int, HashSet[Int]]()
   val documentMap = HashMap[Int, Int]()
-
   val rand = scala.util.Random
 
-  // Note: N in Avrachenkov et al is not == num documents
-  var n = readFile("./links.txt")
+  val n = readAndMapLinks(linksPath)
 
-  def readFile(file: String): Int = {
+  def readAndMapLinks(file: String): Int = {
     println("Reading links")
     val docs = HashSet[Int]()
     val internalMapping = HashMap[Int, Int]()
@@ -229,19 +229,18 @@ object PageRank {
     }
 
     val c3 = (y: Array[Double]) => {
-      var test = 3
-      val approx50 = y.zipWithIndex.sortBy(-_._1).take(docs + test).map(_._2)
+      var offset = 3
+      val approx50 = y.zipWithIndex.sortBy(-_._1).take(docs + offset).map(_._2)
       var size = top50.map(_._2).zipWithIndex.map((x) => {
         var j = 0
         var found = false
-        if (x._2 - 2 >= 0) j = x._2 - 2
-        while (j < top50.size + test && j < (x._2 + 2) && !found) {
+        if (x._2 - offset >= 0) j = x._2 - offset
+        while (j < top50.size + offset && j < (x._2 + offset) && !found) {
           if (approx50(j) == x._1) found = true
           j += 1
         }
         found
       }).filter(_ == true).size
-      println(size)
       size == 50
     }
 
@@ -279,11 +278,9 @@ object PageRank {
           rank = f(N, 1)
         }
         converged = c1(rank) && c2(rank) // && c3(rank)
-
         //println("N = n * " + i)
         N = n * i
         i += 1
-
       }
 
       println("----")
@@ -325,7 +322,7 @@ object PageRank {
   def writePagerankToFile() {
     // Read id to title mapping
     var titles = HashMap[Int, String]()
-    for (line <- Source.fromFile("titles.txt").getLines()) {
+    for (line <- Source.fromFile(titlesPath).getLines()) {
       var parts = line.split(";")
       var id = parts(0).toInt
       var title = parts(1)
