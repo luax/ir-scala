@@ -3,7 +3,7 @@ package ir.index
 import scala.collection.mutable.HashMap
 import ir.models.PostingsList
 import ir.models.PostingsEntry
-import ir.Query
+import ir.models.Query
 import ir.Index
 import java.util.LinkedList
 import scala.collection.mutable.ListBuffer
@@ -12,10 +12,7 @@ import java.io._
 class HashedIndex extends BasicIndex {
   val index = HashMap[String, PostingsList]()
 
-  val pageRankPath = "./pagerank.ser"
-  val pageRank = readPageRank
-
-  override def getPostings(tokens: LinkedList[String]): List[PostingsList] = {
+  override def getPostings(tokens: List[String]): List[PostingsList] = {
     var r = new ListBuffer[PostingsList]()
     var i = tokens.iterator
     while (i.hasNext) {
@@ -43,17 +40,17 @@ class HashedIndex extends BasicIndex {
 
   override def getPostings(token: String): Option[PostingsList] = index.get(token)
 
-  override def search(query: ir.Query, queryType: Int, rankingType: Int, structureType: Int): PostingsList = {
-    var postingsList = getPostings(query.terms)
-    if (postingsList.isEmpty) return new PostingsList("")
+  override def search(query: Query, queryType: Int, rankingType: Int, structureType: Int): PostingsList = {
+    var postingsLists = getPostings(query.terms)
+    if (postingsLists.isEmpty) return new PostingsList("")
     queryType match {
-      case Index.INTERSECTION_QUERY => intersectionStrategy(postingsList)
-      case Index.PHRASE_QUERY       => phraseStrategy(postingsList)
-      case Index.RANKED_QUERY       => rankedStrategy(postingsList, rankingType)
+      case Index.INTERSECTION_QUERY => intersectionStrategy(query, postingsLists)
+      case Index.PHRASE_QUERY       => phraseStrategy(query, postingsLists)
+      case Index.RANKED_QUERY       => rankedStrategy(query, postingsLists, rankingType)
     }
   }
 
-  private def phraseStrategy(postingsLists: List[PostingsList]): PostingsList = {
+  private def phraseStrategy(query: Query, postingsLists: List[PostingsList]): PostingsList = {
     val addResult = (left: PostingsEntry, right: PostingsEntry, result: PostingsList) => {
       left.offsets.foreach { x =>
         {
@@ -75,7 +72,7 @@ class HashedIndex extends BasicIndex {
       .foldLeft(postingsLists(0))((b, a) => intersect(b.iterator, a.iterator, addResult))
   }
 
-  private def intersectionStrategy(postingsLists: List[PostingsList]): PostingsList = {
+  private def intersectionStrategy(query: Query, postingsLists: List[PostingsList]): PostingsList = {
     val addResult = (left: PostingsEntry, right: PostingsEntry, result: PostingsList) => {
       result += new PostingsEntry(left.docId)
     }: Unit
@@ -85,20 +82,25 @@ class HashedIndex extends BasicIndex {
       .foldLeft(postingsLists(0))((b, a) => intersect(b.iterator, a.iterator, addResult))
   }
 
-  private def rankedStrategy(postingsLists: List[PostingsList], rankingType: Int): PostingsList = {
+  private def rankedStrategy(query: Query, postingsLists: List[PostingsList], rankingType: Int): PostingsList = {
     val scores = new HashMap[Int, Double]()
     val result = new PostingsList
 
     if (rankingType == Index.PAGERANK) {
-      return returnPageRank()
+      return returnPageRank
     }
 
     val score = (entry: PostingsEntry, list: PostingsList) => {
-      val file = Index.docIDs.get(entry.docId.toString)
-      val tfidf = entry.tf * list.idf / Index.docLengths.get(entry.docId.toString) // * list.idf
+      val file = getFilename(Index.docFilepaths.get(entry.docId))
+      val tfidf = entry.tf * list.idf
+      // w_t,d = tf_t,d * log(N / df_t)
+      val wtd = tfidf
+      val wtq = query.score(list.token)
+      val w1 = 2
+      val w2 = 1
       rankingType match {
-        case Index.TF_IDF      => tfidf
-        case Index.COMBINATION => 2 * pageRank(file) + 1 * tfidf
+        case Index.TF_IDF      => wtd * wtq / Index.docLengths.get(entry.docId)
+        case Index.COMBINATION => w1 * pageRank.getOrElse(file, 0.0) + w2 * wtd * wtq / Index.docLengths.get(entry.docId)
       }
     }
 
@@ -137,33 +139,6 @@ class HashedIndex extends BasicIndex {
       }
     }
     result
-  }
-
-  private def returnPageRank(): PostingsList = {
-    val reversed = new HashMap[String, Int]()
-    val result = new PostingsList
-    var set = Index.docIDs.entrySet()
-    var it = set.iterator();
-    while (it.hasNext()) {
-      var pair = it.next();
-      reversed(pair.getValue) = pair.getKey.toInt
-    }
-    pageRank
-      .toSeq
-      .sortBy(-_._2)
-      .foreach((elem: (String, Double)) => {
-        if (reversed.contains(elem._1))
-          result += new PostingsEntry(reversed(elem._1), elem._2)
-      })
-    result
-  }
-
-  private def readPageRank(): HashMap[String, Double] = {
-    val fis = new FileInputStream(pageRankPath)
-    val ois = new ObjectInputStream(fis)
-    val pageRank = ois.readObject.asInstanceOf[HashMap[String, Double]]
-    ois.close
-    pageRank
   }
 
 }

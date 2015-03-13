@@ -9,6 +9,6 @@ class PostingsEntry(val docId: Int, var score: Double = 0) {
   def tf() = offsets.size
 
   override def toString() = {
-    Index.docIDs.get(docId.toString) + " " + score
+    Index.docFilepaths.get(docId) + " " + score
   }
 }
