@@ -3,6 +3,7 @@ package ir.models
 import ir.Indexer
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.HashMap
+import ir.Index
 
 class Query(query: String) {
   private val termScore: HashMap[String, Double] = new HashMap[String, Double]()
@@ -22,17 +23,17 @@ class Query(query: String) {
       .filter((r) => docIsRelevant(r._2))
       .map(x => new Document(x._1.docId))
 
-    // Multiply alpha
+    // Multiply alpha and normalize
     for ((k, v) <- termScore) {
-      termScore(k) = v * α
+      termScore(k) = (v * α) * 1 / termScore.size
     }
 
     // Add second vector
     for (doc <- relevantDocs) {
       for (term <- doc.terms) {
         val postingsList = indexer.index.getPostings(term).get
-        val score = β * postingsList.getEntry(doc.id).tf() * postingsList.idf / relevantDocs.size
-        termScore(term) = termScore.getOrElse(term, 0.0) + score
+        val score = β * postingsList.getEntry(doc.id).tf() * postingsList.idf / Index.docLengths.get(doc.id)
+        termScore(term) = termScore.getOrElse(term, 0.0) + score / relevantDocs.size
       }
     }
   }

@@ -94,13 +94,13 @@ class HashedIndex extends BasicIndex {
       val file = getFilename(Index.docFilepaths.get(entry.docId))
       val tfidf = entry.tf * list.idf
       // w_t,d = tf_t,d * log(N / df_t)
-      val wtd = tfidf
+      val wtd = tfidf / Index.docLengths.get(entry.docId)
       val wtq = query.score(list.token)
       val w1 = 2
       val w2 = 1
       rankingType match {
-        case Index.TF_IDF      => wtd * wtq / Index.docLengths.get(entry.docId)
-        case Index.COMBINATION => w1 * pageRank.getOrElse(file, 0.0) + w2 * wtd * wtq / Index.docLengths.get(entry.docId)
+        case Index.TF_IDF      => wtd * wtq
+        case Index.COMBINATION => w1 * pageRank.getOrElse(file, 0.0) + w2 * wtd * wtq
       }
     }
 
