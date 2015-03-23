@@ -67,9 +67,10 @@ class HashedIndex extends BasicIndex {
         }
       }
     }
+
     postingsLists
       .drop(1)
-      .foldLeft(postingsLists(0))((b, a) => intersect(b.iterator, a.iterator, addResult))
+      .foldLeft(postingsLists(0))((res, list) => intersect(res.iterator, list.iterator, addResult))
   }
 
   private def intersectionStrategy(query: Query, postingsLists: List[PostingsList]): PostingsList = {
@@ -78,8 +79,8 @@ class HashedIndex extends BasicIndex {
     }: Unit
     // Sort all postings in increasing order and intersect
     postingsLists
-      .sortBy { x => x.size }
-      .foldLeft(postingsLists(0))((b, a) => intersect(b.iterator, a.iterator, addResult))
+      .sortBy(_.size)
+      .foldLeft(postingsLists(0))((res, list) => intersect(res.iterator, list.iterator, addResult))
   }
 
   private def rankedStrategy(query: Query, postingsLists: List[PostingsList], rankingType: Int): PostingsList = {
@@ -121,9 +122,7 @@ class HashedIndex extends BasicIndex {
   }
 
   private def intersect(p1: Iterator[PostingsEntry], p2: Iterator[PostingsEntry], addResult: (PostingsEntry, PostingsEntry, PostingsList) => Unit): PostingsList = {
-    val nextPost = (p1: Iterator[PostingsEntry]) => {
-      if (p1.hasNext) p1.next() else null
-    }
+    val nextPost = (p: Iterator[PostingsEntry]) => if (p.hasNext) p.next else null
     var result = new PostingsList()
     var left = nextPost(p1)
     var right = nextPost(p2)
