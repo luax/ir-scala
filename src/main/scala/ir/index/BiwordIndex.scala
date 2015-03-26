@@ -37,7 +37,6 @@ class BiwordIndex extends BasicIndex {
     }
 
     def getPostings(bigrams: List[String]): List[PostingsList] = {
-      println("Get postings: " + bigrams)
       var r = new ListBuffer[PostingsList]()
       for (bigram <- bigrams) {
         var list = index.get(bigram)
@@ -51,6 +50,7 @@ class BiwordIndex extends BasicIndex {
     def apply(term: String) = index(term)
     def size() = index.size
   }
+
   private val index = new BiIndex
 
   override def initialize() = { println("Number of bigrams: " + index.size) }
@@ -61,7 +61,7 @@ class BiwordIndex extends BasicIndex {
 
   override def search(query: Query, queryType: QueryType, rankingType: RankingType): PostingsList = queryType match {
     case RankedQuery => rankedStrategy(query, index.getPostings(query.terms), rankingType)
-    case _           => println("*** Unsupported bigram query ***"); new PostingsList
+    case _           => throw new UnsupportedOperationException("Unsupported query type: " + queryType)
   }
 
 }

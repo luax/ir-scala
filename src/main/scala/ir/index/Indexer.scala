@@ -12,8 +12,9 @@ object Indexer {
 
   def createIndex(dirs: List[String], structureType: StructureType): Index = {
     var index = structureType match {
-      case Unigram => new HashedIndex
-      case Bigram  => new BiwordIndex
+      case Unigram   => new HashedIndex
+      case Bigram    => new BiwordIndex
+      case Subphrase => new SubphraseIndex
     }
     for (dir <- dirs) {
       indexDirectory(new File(dir), index)
