@@ -9,10 +9,11 @@ class Query(query: String) {
   private val termScore: HashMap[String, Double] = new HashMap[String, Double]()
   private val α = 1.0
   private val β = 0.5
-  val terms = query.split(' ').toList
 
   // Initial scores
-  terms.foreach(termScore(_) = 1.0) // TODO: idf_t score?
+  query.split(' ').foreach(termScore(_) = 1.0) // TODO: idf_t score?
+
+  def terms() = termScore.keys.toList
 
   def score(term: String) = termScore(term)
 
