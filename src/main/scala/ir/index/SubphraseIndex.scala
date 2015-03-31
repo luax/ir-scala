@@ -36,11 +36,11 @@ class SubphraseIndex extends BasicIndex {
       // Weigh bigram so that it is always better
       val w = bigramResult.last.score.compare(unigramResult.head.score) match {
         case 1 => 0
-        case _ => (unigramResult.head.score - bigramResult.last.score) * 1.1
+        case _ => (unigramResult.head.score - bigramResult.last.score)
       }
       bigramResult.foreach((x) => x.score += w)
     }
-    val result = new PostingsList("")
+    val result = new PostingsList
     (bigramResult ++ unigramResult).foreach((x) => result += x)
     println("Returning bigram ++ unigram")
     return result
